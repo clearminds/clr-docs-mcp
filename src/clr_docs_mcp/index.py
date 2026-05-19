@@ -53,6 +53,93 @@ def _tokenize(s: str) -> list[str]:
     return [t for t in re.split(r"[^a-z0-9]+", s.lower()) if t]
 
 
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
+
+
+def _slugify(s: str) -> str:
+    """Lowercase, alphanumerics + dashes, mirroring most markdown→html anchorers."""
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+
+def _build_index_from_markdown(docs_dir: Path) -> list[dict[str, Any]]:
+    """Scan ``docs_dir`` for .md files, emit one index entry per heading.
+
+    Mirrors Zensical's per-heading schema so callers see the same shape
+    whether the index came from search.json or from this fallback.
+
+    Each .md file contributes one entry per heading. The "text" field is
+    the markdown between this heading and the next. The location is
+    ``<rel-path-without-.md>/#<heading-slug>``, mirroring how Zensical
+    publishes pages.
+
+    Args:
+        docs_dir: ``<repo>/docs`` (matches the zensical site_dir layout).
+
+    Returns:
+        List of index items.
+    """
+    items: list[dict[str, Any]] = []
+    for md in sorted(docs_dir.rglob("*.md")):
+        try:
+            content = md.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        rel = md.relative_to(docs_dir).with_suffix("")
+        # README.md / index.md → directory landing page (no trailing filename).
+        if rel.name in {"README", "index"}:
+            location_base = str(rel.parent) + "/" if str(rel.parent) != "." else ""
+        else:
+            location_base = str(rel) + "/"
+
+        headings = list(_HEADING_RE.finditer(content))
+        if not headings:
+            # No headings — index the whole file as one item using the
+            # filename stem as the title.
+            items.append(
+                {
+                    "location": location_base,
+                    "level": 1,
+                    "title": rel.name,
+                    "text": content,
+                    "path": [str(rel.parent)] if str(rel.parent) != "." else [],
+                    "tags": [],
+                }
+            )
+            continue
+
+        # File-level entry — uses first heading as the page title.
+        first = headings[0]
+        items.append(
+            {
+                "location": location_base,
+                "level": 1,
+                "title": first.group(2),
+                "text": content[: first.start()],
+                "path": [str(rel.parent)] if str(rel.parent) != "." else [],
+                "tags": [],
+            }
+        )
+
+        # One entry per heading; text runs to the next heading.
+        for i, h in enumerate(headings):
+            level = len(h.group(1))
+            title = h.group(2)
+            start = h.end()
+            end = headings[i + 1].start() if i + 1 < len(headings) else len(content)
+            items.append(
+                {
+                    "location": f"{location_base}#{_slugify(title)}",
+                    "level": level,
+                    "title": title,
+                    "text": content[start:end],
+                    "path": [str(rel.parent)] if str(rel.parent) != "." else [],
+                    "tags": [],
+                }
+            )
+    return items
+
+
 class DocsIndex:
     """In-memory wrapper around Zensical's search.json."""
 
@@ -65,7 +152,13 @@ class DocsIndex:
 
     @classmethod
     def load(cls, repo_path: Path) -> DocsIndex:
-        """Load the index from ``<repo_path>/public/search.json``.
+        """Load an index for ``repo_path``.
+
+        Prefers ``<repo_path>/public/search.json`` (the Zensical build
+        output, which gives per-heading granularity). Falls back to
+        scanning ``<repo_path>/docs/**/*.md`` when ``public/`` isn't
+        present — important when the deployment has the source clone
+        only, not the CI build artifact.
 
         Args:
             repo_path: Local docs repo root.
@@ -74,12 +167,21 @@ class DocsIndex:
             A ready-to-query DocsIndex.
 
         Raises:
-            FileNotFoundError: search.json doesn't exist yet (CI hasn't run,
-                or the repo clone is incomplete).
+            FileNotFoundError: Neither search.json nor a docs/ tree
+                with markdown files is present.
         """
         search_json = repo_path / "public" / "search.json"
-        data = json.loads(search_json.read_text())
-        return cls(data.get("items", []))
+        if search_json.is_file():
+            data = json.loads(search_json.read_text())
+            return cls(data.get("items", []))
+
+        docs_dir = repo_path / "docs"
+        if docs_dir.is_dir():
+            return cls(_build_index_from_markdown(docs_dir))
+
+        raise FileNotFoundError(
+            f"No search.json at {search_json} and no docs/ tree at {docs_dir}"
+        )
 
     def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Return the top ``limit`` matches for ``query``.
