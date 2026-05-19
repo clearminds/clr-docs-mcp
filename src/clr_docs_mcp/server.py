@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -201,6 +202,14 @@ def main() -> None:
         len(_index._items),
         _settings.docs_repo_path,
     )
+
+    # When running HTTP for container deployment, FastMCP defaults to
+    # 127.0.0.1:8000 which is unreachable from outside the container.
+    # Honour HOST/PORT env vars for the streamable-http / sse transports.
+    if args.transport in {"http", "streamable-http", "sse"}:
+        mcp.settings.host = os.getenv("HOST", "0.0.0.0")
+        mcp.settings.port = int(os.getenv("PORT", "8000"))
+        log.info("HTTP transport: listening on %s:%s/mcp", mcp.settings.host, mcp.settings.port)
 
     mcp.run(transport=args.transport)
 
