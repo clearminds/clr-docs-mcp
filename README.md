@@ -6,9 +6,9 @@ Surfaces three tools to any MCP client:
 
 | Tool | Purpose |
 |---|---|
-| `docs_search(query, limit=10)` | Full-text search the Zensical index. Title weighs 3× body. Returns title + URL + snippet. |
-| `docs_read(path)` | Return the raw markdown for a page. Accepts `arista/docs/MLAG.html` or `arista/docs/MLAG.md`. |
-| `docs_list(prefix="")` | List unique page paths, optionally filtered by prefix. E.g. `docs_list("sessions/clearthink/")`. |
+| `search(query, limit=10)` | Full-text search the Zensical index. Title weighs 3× body. Returns title + URL + snippet. |
+| `read_page(path)` | Return the raw markdown for a page. Accepts `arista/docs/MLAG.html` or `arista/docs/MLAG.md`. |
+| `list_pages(prefix="")` | List unique page paths, optionally filtered by prefix. E.g. `list_pages("sessions/clearthink/")`. |
 
 Data source is a **local clone** of `clearminds/docs` — the MCP reads
 `<repo>/public/search.json` (built by CI on every push to `main`) and the
@@ -39,4 +39,4 @@ Operational docs (Arista bootstrap, MikroTik recipes, session notes,
 troubleshooting playbooks) all live in `clearminds/docs`. Without this
 MCP an agent has to grep the local clone or fetch URLs by hand. With it,
 "what did we do about the Hanwha sysName issue?" becomes a single
-`docs_search` call.
+`search` call.

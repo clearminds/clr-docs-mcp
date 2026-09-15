@@ -81,7 +81,7 @@ def _resolve_markdown(page_path: str) -> Path | None:
 
 
 @mcp.tool
-def docs_search(query: str, limit: int = 10) -> list[dict[str, Any]]:
+def search(query: str, limit: int = 10) -> list[dict[str, Any]]:
     """Search the clearminds docs site.
 
     Searches every heading and body across all categories (arista, mikrotik,
@@ -112,7 +112,7 @@ def docs_search(query: str, limit: int = 10) -> list[dict[str, Any]]:
 
 
 @mcp.tool
-def docs_read(path: str) -> dict[str, Any]:
+def read_page(path: str) -> dict[str, Any]:
     """Read the full markdown source of a docs page.
 
     Accepts published paths (``arista/docs/MLAG.html``), source paths
@@ -142,11 +142,11 @@ def docs_read(path: str) -> dict[str, Any]:
 
 
 @mcp.tool
-def docs_list(prefix: str = "") -> list[str]:
+def list_pages(prefix: str = "") -> list[str]:
     """List unique page paths in the docs site, optionally filtered by prefix.
 
-    Useful for discovery: ``docs_list("sessions/")`` returns every session
-    note, ``docs_list("arista/")`` returns every Arista page, etc.
+    Useful for discovery: ``list_pages("sessions/")`` returns every session
+    note, ``list_pages("arista/")`` returns every Arista page, etc.
 
     Args:
         prefix: Optional prefix filter (e.g. ``"sessions/clearthink/"``).

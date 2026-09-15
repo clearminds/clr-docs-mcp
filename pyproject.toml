@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "clr-docs-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Read-only MCP for the clearminds Zensical docs site (clearminds/docs)"
 authors = [{name = "clearminds", email = "noc@clearminds.se"}]
 readme = "README.md"
